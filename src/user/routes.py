@@ -17,7 +17,7 @@ async def auth(request):
 		username = request.args.get("username")
 		password = hashlib.sha3_512(bytes(request.args.get("password"), encoding='utf8')).hexdigest()
 		user = await User.query.where(
-			(User.username == username) 
+			(User.username == username)
 			& (User.password == password)
 			).gino.first()
 
@@ -34,11 +34,12 @@ async def auth(request):
 	else:
 		response = json({'error': "No args"})
 
-	# if request.method == 'OPTIONS':
+	if request.method == 'OPTIONS':
 		response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
 		response.headers['Access-Control-Allow-Methods'] = 'POST'
-		response.headers['Access-Control-Allow-Credentials'] = 'true'
-		response.headers['Access-Control-Allow-Headers'] = 'access-control-allow-origin'
+	if request.method == 'POST':
+		response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
+
 	return response
 
 
@@ -49,6 +50,7 @@ async def logout(request):
 	del sessions[request.cookies.get('session')]
 	del response.cookies['session']
 	return response
+
 
 @user.get("/<user_id:int>")
 @user.get("/")
