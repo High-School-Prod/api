@@ -7,7 +7,8 @@ from src.user.utils import authorized, current_user
 
 user = Blueprint("user_bp", url_prefix="/user")
 
-@user.post('/login')
+
+@user.route('/login', methods=['POST', 'OPTIONS'])
 async def auth(request):
 	if request.cookies.get('session') in sessions:
 		return redirect('/')
@@ -33,6 +34,11 @@ async def auth(request):
 	else:
 		response = json({'error': "No args"})
 
+	# if request.method == 'OPTIONS':
+		response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
+		response.headers['Access-Control-Allow-Methods'] = 'POST'
+		response.headers['Access-Control-Allow-Credentials'] = 'true'
+		response.headers['Access-Control-Allow-Headers'] = 'access-control-allow-origin'
 	return response
 
 
@@ -50,7 +56,7 @@ async def logout(request):
 async def main(request, user_id=None):
 	if user_id:
 		user = await User.query.where(
-            		(User.id == user_id) 
+            		(User.id == user_id)
                     ).gino.first()
 	else:
 		user = await current_user(request)
