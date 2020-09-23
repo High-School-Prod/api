@@ -17,7 +17,5 @@ def authorized():
     return decorator
 
 async def current_user(request):
-    user = await User.query.where(
-            (User.id == sessions[request.cookies.get('session')]) 
-            ).gino.first()
+    user = sessions[request.cookies.get('session')]
     return user

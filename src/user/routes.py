@@ -7,8 +7,7 @@ from src.user.utils import authorized, current_user
 
 user = Blueprint("user_bp", url_prefix="/user")
 
-
-@user.get('/auth')
+@user.post('/login')
 async def auth(request):
 	if request.cookies.get('session') in sessions:
 		return redirect('/')
@@ -28,7 +27,7 @@ async def auth(request):
 			response.cookies['session']['secure'] = True
 			response.cookies['session']['httponly'] = True
 			response.cookies['session']['max-age'] = 60 * 60 * 24 * 30
-			sessions[hs] = user.id
+			sessions[hs] = user
 		else:
 			response = json({'error': "No user"})
 	else:
@@ -37,7 +36,7 @@ async def auth(request):
 	return response
 
 
-@user.route("/logout")
+@user.get("/logout")
 @authorized()
 async def logout(request):
 	response = redirect("/")
@@ -45,8 +44,25 @@ async def logout(request):
 	del response.cookies['session']
 	return response
 
-@user.route("/")
+@user.get("/<user_id:int>")
+@user.get("/")
 @authorized()
-async def main(request):
-	response = json({"user": (await current_user(request)).username})
+async def main(request, user_id=None):
+	if user_id:
+		user = await User.query.where(
+            		(User.id == user_id) 
+                    ).gino.first()
+	else:
+		user = await current_user(request)
+	if user:
+		response = json({
+							'id': user.id,
+							'username': user.username,
+	    					'status': user.status,
+	    					'nickname': user.nickname,
+	    					'avatar':  user.avatar,
+	    					'email':  user.email
+					    })
+	else:
+		response = json({"error": "No user"}, 404)
 	return response

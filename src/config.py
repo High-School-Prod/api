@@ -1,6 +1,4 @@
 
-
-
 class Config:
 	DB_HOST = '94.154.224.215'
 	DB_DATABASE = 'generaldb'
