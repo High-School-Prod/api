@@ -1,5 +1,6 @@
 from src import db
 
+
 class User(db.Model):
     __tablename__ = 'users'
 
@@ -11,7 +12,6 @@ class User(db.Model):
     nickname = db.Column(db.String(50))
     avatar = db.Column(db.String(69))
     email = db.Column(db.String(64), nullable=False, unique=True)
-
 
     def __repr__(self):
         return '{}<{}>'.format(self.username, self.id)

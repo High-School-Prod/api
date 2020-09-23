@@ -3,6 +3,7 @@ from src import sessions
 from sanic.response import json
 from src.user.models import User
 
+
 def authorized():
     def decorator(f):
         @wraps(f)
@@ -15,6 +16,7 @@ def authorized():
                 return json({'status': 'not_authorized'}, 403)
         return decorated_function
     return decorator
+
 
 async def current_user(request):
     user = sessions[request.cookies.get('session')]

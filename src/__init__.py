@@ -12,5 +12,5 @@ db.init_app(app)
 from src.workspace import workspace
 from src.user import user
 
-app.blueprint(workspace) 
-app.blueprint(user) 
+app.blueprint(workspace)
+app.blueprint(user)

@@ -1,0 +1,3 @@
+gino==1.0.1
+gino-sanic==0.1.0
+sanic==19.12.2
