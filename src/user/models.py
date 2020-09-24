@@ -2,7 +2,10 @@ from src import db
 
 
 class User(db.Model):
-    __tablename__ = 'users'
+
+    """User model in data base"""
+
+    __tablename__ = 'users' # Name of table with users
 
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(32), nullable=False, unique=True)
@@ -14,3 +17,12 @@ class User(db.Model):
 
     def __repr__(self):
         return '{}<{}>'.format(self.username, self.id)
+
+    async def validate(self):
+        """Validates if there are no conflict in database"""
+        user = await User.query.where(
+            (User.username == self.username)
+            | (User.email == self.email)
+        ).gino.first()
+
+        return False if user else True

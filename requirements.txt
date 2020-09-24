@@ -1,3 +1,4 @@
 gino==1.0.1
 gino-sanic==0.1.0
 sanic==19.12.2
+pymemcache==3.4.0

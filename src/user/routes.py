@@ -1,79 +1,121 @@
 import secrets
-import hashlib
+
 from sanic import Blueprint
 from sanic.response import json, redirect
-from src import sessions
+from sanic.views import HTTPMethodView
+
+from src import sessions, db
 from src.user.models import User
-from src.user.utils import authorized, current_user
+from src.user.utils import authorized, current_user, encode_to_sha
 
 
 user = Blueprint("user_bp", url_prefix="/user")
 
 
 @user.route('/login', methods=['POST', 'OPTIONS'])
-async def auth(request):
-    if request.cookies.get('session') in sessions:
-        return redirect('/')
+async def login(request):
+    """Authorizes user"""
 
-	if request.args.get("username") and request.args.get("password"):
-		username = request.args.get("username")
-		password = hashlib.sha3_512(bytes(request.args.get("password"), encoding='utf8')).hexdigest()
-		user = await User.query.where(
-			(User.username == username)
-			& (User.password == password)
-			).gino.first()
+    session = request.cookies.get('session')
+    if session and sessions.get("session:" + session):
+        return json({'error': "Already authorized"})
 
-		if user:
-			hs = secrets.token_hex(nbytes=16)
-			response = json({'token': user.username})
-			response.cookies['session'] = hs
-			response.cookies['session']['httponly'] = True
-			response.cookies['session']['max-age'] = 60 * 60 * 24 * 30
-			sessions[hs] = user
-		else:
-			response = json({'error': "No user"})
-	else:
-		response = json({'error': "No args"})
+    if request.args.get("username") and request.args.get("password"):
+        username = request.args.get("username")
+        password = encode_to_sha(request.args.get("password"))
+        user = await User.query.where(
+            (User.username == username)
+            & (User.password == password)
+        ).gino.first()
 
-	if request.method == 'OPTIONS':
-		response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
-		response.headers['Access-Control-Allow-Methods'] = 'POST'
-		response.headers['Access-Control-Allow-Credentials'] = 'true'
-	if request.method == 'POST':
-		response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
-		response.headers['Access-Control-Allow-Credentials'] = 'true'
-
-	return response
+        if user:
+            hs = secrets.token_hex(nbytes=16)
+            response = json({'token': user.username})
+            response.cookies['session'] = hs
+            response.cookies['session']['httponly'] = True
+            response.cookies['session']['max-age'] = 60 * 60 * 24 * 30
+            sessions.set("session:" + hs, user.id)
+            return response
+        else:
+            return json({'error': "Authorization failed"})
+    else:
+        return json({'error': "Expected arguments {username, password}"})
 
 
-@user.get("/logout")
+@user.route('/logout', methods=['GET', 'OPTIONS'])
 @authorized()
 async def logout(request):
-	response = redirect("/")
-	del sessions[request.cookies.get('session')]
-	del response.cookies['session']
-	return response
+    """Deauthorizes user"""
+    response = json({"success": "Deauthorized"})
+    sessions.delete("session:" + request.cookies.get('session'))
+    del response.cookies['session']
+    return response
 
 
-@user.get("/<user_id:int>")
-@user.get("/")
+@user.route("/get_user", methods=['GET', 'OPTIONS'])
 @authorized()
-async def main(request, user_id=None):
-	if user_id:
-		user = await User.query.where(
-            		(User.id == user_id)
-                    ).gino.first()
-	else:
-		user = await current_user(request)
-	if user:
-		response = json({
-							'id': user.id,
-							'username': user.username,
-	    					'status': user.status,
-	    					'nickname': user.nickname,
-	    					'avatar':  user.avatar,
-	    					'email':  user.email
-					    })
-	else:
-		response = json({"error": "No user"}, 404)
-	return response
+async def get_user(request):
+    """Gets user by id"""
+    user_id = request.args.get("id")
+    if not user_id:
+        user = await current_user(request)
+    else:
+        if not user_id.isnumeric():
+            return json({"error": "Needs integer"})
+        else:
+            user = await User.query.where(
+                (User.id == int(user_id))
+            ).gino.first()
+
+    if user:
+        return json({
+            'id': user.id,
+            'username': user.username,
+            'status': user.status,
+            'nickname': user.nickname,
+            'avatar':  user.avatar,
+            'email':  user.email
+        })
+    else:
+        return json({"error": "No user"}, 404)
+
+
+@user.route("/add_user", methods=['POST', 'OPTIONS'])
+async def add_user(request):
+    """Adds user"""
+    username = request.args.get("username")
+    password = request.args.get("password")
+    nickname = request.args.get("nickname")
+    email = request.args.get("email")
+
+    if username and password and email:
+        user = User(
+            username=username,
+            password=encode_to_sha(password),
+            nickname=nickname if nickname else username,
+            email=email
+        )
+        if await user.validate():
+            await user.create()
+            return json({"success": "User added"}, 200)
+
+        return json({"error": "User already in base"})
+
+    return json({"error": "Missing parameters"})
+
+
+@user.route("/del_user", methods=['POST', 'OPTIONS'])
+async def del_user(request):
+    """Removes user"""
+    if request.args.get("id"):
+        user = await User.query.where(
+                User.id == int(request.args.get("id"))
+        ).gino.first()
+
+        if user:
+            await user.delete()
+            return json({"success": "Deleted user"})
+
+        return json({"error": "User not in base"})
+
+    return json({"error": "Missing parameters"})
