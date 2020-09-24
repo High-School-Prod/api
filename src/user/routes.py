@@ -54,6 +54,7 @@ async def logout(request):
 	del response.cookies['session']
 	return response
 
+
 @user.get("/<user_id:int>")
 @user.get("/")
 @authorized()
