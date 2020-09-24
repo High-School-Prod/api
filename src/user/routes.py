@@ -59,21 +59,21 @@ async def logout(request):
 @user.get("/")
 @authorized()
 async def main(request, user_id=None):
-    if user_id:
-        user = await User.query.where(
-            (User.id == user_id)
-        ).gino.first()
-    else:
-        user = await current_user(request)
-    if user:
-        response = json({
-            'id': user.id,
-            'username': user.username,
-            'status': user.status,
-            'nickname': user.nickname,
-            'avatar':  user.avatar,
-            'email':  user.email
-        })
-    else:
-        response = json({"error": "No user"}, 404)
-    return response
+	if user_id:
+		user = await User.query.where(
+            		(User.id == user_id)
+                    ).gino.first()
+	else:
+		user = await current_user(request)
+	if user:
+		response = json({
+							'id': user.id,
+							'username': user.username,
+	    					'status': user.status,
+	    					'nickname': user.nickname,
+	    					'avatar':  user.avatar,
+	    					'email':  user.email
+					    })
+	else:
+		response = json({"error": "No user"}, 404)
+	return response
