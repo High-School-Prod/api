@@ -25,7 +25,6 @@ async def auth(request):
 			hs = secrets.token_hex(nbytes=16)
 			response = json({'token': user.username})
 			response.cookies['session'] = hs
-			response.cookies['session']['secure'] = True
 			response.cookies['session']['httponly'] = True
 			response.cookies['session']['max-age'] = 60 * 60 * 24 * 30
 			sessions[hs] = user
@@ -37,8 +36,10 @@ async def auth(request):
 	if request.method == 'OPTIONS':
 		response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
 		response.headers['Access-Control-Allow-Methods'] = 'POST'
+		response.headers['Access-Control-Allow-Credentials'] = 'true'
 	if request.method == 'POST':
 		response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
+		response.headers['Access-Control-Allow-Credentials'] = 'true'
 
 	return response
 
