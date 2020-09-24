@@ -6,6 +6,7 @@ from src import sessions
 from src.user.models import User
 from src.user.utils import authorized, current_user
 
+
 user = Blueprint("user_bp", url_prefix="/user")
 
 
