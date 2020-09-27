@@ -1,4 +1,4 @@
-import secrets, datetime
+import secrets, datetime, time
 
 from sanic import Blueprint
 from sanic.response import json, redirect
@@ -16,7 +16,7 @@ user = Blueprint("user_bp", url_prefix="/user")
 @has_json_body()
 async def login(request):
     """Authorizes user"""
-    session = request.cookies.get('session')
+    session = request.headers.get('Authorization')
     if session and sessions.get("session:" + session):
         return json({
                     'ok': False,
@@ -38,15 +38,14 @@ async def login(request):
             hs = secrets.token_hex(nbytes=16)
             response = json({
                     'ok': True,
-                    'data': {},
+                    'data': {
+                        'token': hs
+                    },
                     'status': {
                         'datetime': str(datetime.datetime.now()),
                         'message': 'Authorized'
                     }
             })
-            response.cookies['session'] = hs
-            response.cookies['session']['httponly'] = True
-            response.cookies['session']['max-age'] = 60 * 60 * 24 * 30
             sessions.set("session:" + hs, user.id)
             return response
         else:
@@ -81,8 +80,7 @@ async def logout(request):
                         'message': 'Deauthorized'
                     }
     }, 200)
-    sessions.delete("session:" + request.cookies.get('session'))
-    del response.cookies['session']
+    sessions.delete("session:" + request.headers.get('Authorization'))
     return response
 
 
@@ -100,7 +98,7 @@ async def get_user(request):
                 'data': {},
                 'status': {
                     'datetime': str(datetime.datetime.now()),
-                    'message': 'Expected integer'
+                    'message': 'Wrong types'
                 }
             }, 400)
         user = await User.query.where(
@@ -129,7 +127,7 @@ async def get_user(request):
                     'data': {},
                     'status': {
                         'datetime': str(datetime.datetime.now()),
-                        'message': 'User not found'
+                        'message': 'Not found'
                     }
         }, 404)
 
@@ -157,7 +155,7 @@ async def add_user(request):
                     'data': {},
                     'status': {
                         'datetime': str(datetime.datetime.now()),
-                        'message': f"User added with id {user.id}"
+                        'message': f"Added with id {user.id}"
                     }
             }, 200)
 
@@ -166,7 +164,7 @@ async def add_user(request):
                     'data': {},
                     'status': {
                         'datetime': str(datetime.datetime.now()),
-                        'message': 'User is already in base'
+                        'message': 'Is already in database'
                     }
         }, 409)
 
@@ -191,7 +189,7 @@ async def del_user(request):
                         'data': {},
                         'status': {
                             'datetime': str(datetime.datetime.now()),
-                            'message': 'Expected integer'
+                            'message': 'Wrong types'
                         }
             }, 400)
         user = await User.query.where(
@@ -205,7 +203,7 @@ async def del_user(request):
                     'data': {},
                     'status': {
                         'datetime': str(datetime.datetime.now()),
-                        'message': 'User deleted'
+                        'message': 'Deleted'
                     }
         }, 200)
 
@@ -214,7 +212,7 @@ async def del_user(request):
                     'data': {},
                     'status': {
                         'datetime': str(datetime.datetime.now()),
-                        'message': 'User is not in database'
+                        'message': 'Not found'
                     }
         }, 404)
 

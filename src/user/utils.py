@@ -9,7 +9,7 @@ def authorized():
     def decorator(f):
         @wraps(f)
         async def decorated_function(request, *args, **kwargs):
-            is_authorized = sessions.get("session:" + request.cookies.get('session')) # checking if we have a token key in session dict
+            is_authorized = sessions.get("session:" + request.headers.get('Authorization')) # checking if we have a token key in session dict
             if is_authorized:
                 response = await f(request, *args, **kwargs)
                 return response
@@ -19,7 +19,7 @@ def authorized():
                     'data': {},
                     'status': {
                         'datetime': str(datetime.datetime.now()),
-                        'error': 'Not authorized request'
+                        'message': 'Not an authorized request'
                     }}, 401)
         return decorated_function
     return decorator
@@ -38,7 +38,7 @@ def has_json_body():
                     'data': {},
                     'status': {
                         'datetime': str(datetime.datetime.now()),
-                        'error': 'Not request body'
+                        'message': 'No request body'
                     }}, 400)
         return decorated_function
     return decorator
@@ -48,7 +48,7 @@ def has_json_body():
 async def current_user(request):
     """Return current session user object if exists else None"""
     user = await User.query.where(
-        User.id == int(sessions.get('session:'+request.cookies.get('session')))
+        User.id == int(sessions.get('session:'+request.headers.get('Authorization')))
     ).gino.first()
     return user
 
