@@ -6,13 +6,14 @@ from sanic.views import HTTPMethodView
 
 from src import sessions, db
 from src.user.models import User
-from src.user.utils import authorized, has_json_body, current_user, encode_to_sha
+from src.user.utils import authorized, options_responser, has_json_body, current_user, encode_to_sha
 
 
 user = Blueprint("user_bp", url_prefix="/user")
 
 
 @user.route('/login', methods=['POST', 'OPTIONS'])
+@options_responser()
 @has_json_body()
 async def login(request):
     """Authorizes user"""
@@ -69,6 +70,7 @@ async def login(request):
 
 
 @user.route('/logout', methods=['POST', 'OPTIONS'])
+@options_responser()
 @authorized()
 async def logout(request):
     """Deauthorizes user"""
@@ -85,6 +87,7 @@ async def logout(request):
 
 
 @user.route("/", methods=['POST', 'OPTIONS'])
+@options_responser()
 @authorized()
 async def get_user(request):
     """Gets user by id"""
@@ -119,6 +122,7 @@ async def get_user(request):
                     },
                     'status': {
                         'datetime': str(datetime.datetime.now()),
+                        'message': "User queried"
                     }
         }, 200)
     else:
@@ -133,6 +137,7 @@ async def get_user(request):
 
 
 @user.route("/add-user", methods=['POST', 'OPTIONS'])
+@options_responser()
 @has_json_body()
 async def add_user(request):
     """Adds user"""
@@ -140,13 +145,15 @@ async def add_user(request):
     password = request.json.get("password")
     nickname = request.json.get("nickname")
     email = request.json.get("email")
+    avatar = request.json.get("avatar")
 
     if username and password and email:
         user = User(
-            username=username,
-            password=encode_to_sha(password),
-            nickname=nickname if nickname else username,
-            email=email
+                    username=username,
+                    password=encode_to_sha(password),
+                    nickname=nickname if nickname else username,
+                    avatar=avatar,
+                    email=email
         )
         if await user.validate():
             await user.create()
@@ -155,7 +162,7 @@ async def add_user(request):
                     'data': {},
                     'status': {
                         'datetime': str(datetime.datetime.now()),
-                        'message': f"Added with id {user.id}"
+                        'message': f"Created user with {user.id}"
                     }
             }, 200)
 
@@ -179,48 +186,22 @@ async def add_user(request):
 
 
 @user.route("/del-user", methods=['POST', 'OPTIONS'])
+@authorized()
+@options_responser()
 @has_json_body()
 async def del_user(request):
     """Removes user"""
-    if user_id := request.json.get("id"):
-        if type(user_id) != int:
-            return json({
-                        'ok': False,
-                        'data': {},
-                        'status': {
-                            'datetime': str(datetime.datetime.now()),
-                            'message': 'Wrong types'
-                        }
-            }, 400)
-        user = await User.query.where(
-            User.id == request.json.get("id")
-        ).gino.first()
+    user = await User.query.where(
+            User.id == await current_user(request)
+    ).gino.first()
 
-        if user:
-            await user.delete()
-            return json({
-                    'ok': True,
-                    'data': {},
-                    'status': {
-                        'datetime': str(datetime.datetime.now()),
-                        'message': 'Deleted'
-                    }
-        }, 200)
-
-        return json({
-                    'ok': False,
-                    'data': {},
-                    'status': {
-                        'datetime': str(datetime.datetime.now()),
-                        'message': 'Not found'
-                    }
-        }, 404)
-
+    sessions.delete("session:" + request.headers.get('Authorization'))
+    await user.delete()
     return json({
-                    'ok': False,
-                    'data': {},
-                    'status': {
-                        'datetime': str(datetime.datetime.now()),
-                        'message': 'Missing parameters'
-                    }
-        }, 400)
+                'ok': True,
+                'data': {},
+                'status': {
+                    'datetime': str(datetime.datetime.now()),
+                    'message': 'Deleted'
+                 }
+    }, 200)

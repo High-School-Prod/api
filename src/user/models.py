@@ -18,11 +18,15 @@ class User(db.Model):
     def __repr__(self):
         return '{}<{}>'.format(self.username, self.id)
 
-    async def validate(self):
+    async def validate(self, username=None, email=None):
+        if not username:
+            username = self.username
+        if not email:
+            email = self.email
         """Validates if there are no conflicts in database"""
         user = await User.query.where(
-            (User.username == self.username)
-            | (User.email == self.email)
+            (User.username == username)
+            | (User.email == email)
         ).gino.first()
 
         return False if user else True

@@ -43,6 +43,18 @@ def has_json_body():
         return decorated_function
     return decorator
 
+def options_responser():
+    """Checks if OPTIONS method"""
+    def decorator(f):
+        @wraps(f)
+        async def decorated_function(request, *args, **kwargs):
+            if request.method == 'OPTIONS':
+                return json({'options': 'ok'})
+            response = await f(request, *args, **kwargs)
+            return response
+        return decorated_function
+    return decorator
+
 
 
 async def current_user(request):
