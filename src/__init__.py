@@ -4,6 +4,7 @@ from src.config import Config
 from gino.ext.sanic import Gino
 
 sessions = Client(('127.0.0.1', 11211))
+sessions.flush_all()
 
 app = Sanic(__name__)
 app.config.from_object(Config)

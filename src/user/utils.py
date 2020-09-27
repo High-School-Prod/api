@@ -1,5 +1,5 @@
+import hashlib, datetime
 from functools import wraps
-import hashlib
 from src import sessions, db
 from sanic.response import json
 from src.user.models import User
@@ -14,9 +14,35 @@ def authorized():
                 response = await f(request, *args, **kwargs)
                 return response
             else:
-                return json({'error': 'Not authorized request'}, 403)
+                return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'error': 'Not authorized request'
+                    }}, 401)
         return decorated_function
     return decorator
+
+def has_json_body():
+    """Decorator to check if request have json body"""
+    def decorator(f):
+        @wraps(f)
+        async def decorated_function(request, *args, **kwargs):
+            if request.json:
+                response = await f(request, *args, **kwargs)
+                return response
+            else:
+                return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'error': 'Not request body'
+                    }}, 400)
+        return decorated_function
+    return decorator
+
 
 
 async def current_user(request):

@@ -3,7 +3,7 @@ from src import db
 
 class User(db.Model):
 
-    """User model in data base"""
+    """User model in database"""
 
     __tablename__ = 'users' # Name of table with users
 
@@ -19,7 +19,7 @@ class User(db.Model):
         return '{}<{}>'.format(self.username, self.id)
 
     async def validate(self):
-        """Validates if there are no conflict in database"""
+        """Validates if there are no conflicts in database"""
         user = await User.query.where(
             (User.username == self.username)
             | (User.email == self.email)

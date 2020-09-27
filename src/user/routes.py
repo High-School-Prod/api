@@ -1,4 +1,4 @@
-import secrets
+import secrets, datetime
 
 from sanic import Blueprint
 from sanic.response import json, redirect
@@ -6,87 +6,142 @@ from sanic.views import HTTPMethodView
 
 from src import sessions, db
 from src.user.models import User
-from src.user.utils import authorized, current_user, encode_to_sha
+from src.user.utils import authorized, has_json_body, current_user, encode_to_sha
 
 
 user = Blueprint("user_bp", url_prefix="/user")
 
 
 @user.route('/login', methods=['POST', 'OPTIONS'])
+@has_json_body()
 async def login(request):
     """Authorizes user"""
-
     session = request.cookies.get('session')
     if session and sessions.get("session:" + session):
-        return json({'error': "Already authorized"})
+        return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'Already authorized'
+                    }
+        }, 423)
 
-    if request.args.get("username") and request.args.get("password"):
-        username = request.args.get("username")
-        password = encode_to_sha(request.args.get("password"))
+    if ((username := request.json.get("username"))
+            and (password := request.json.get("password"))):
+
         user = await User.query.where(
             (User.username == username)
-            & (User.password == password)
-        ).gino.first()
+            & (User.password == encode_to_sha(password))).gino.first()
 
         if user:
             hs = secrets.token_hex(nbytes=16)
-            response = json({'token': user.username})
+            response = json({
+                    'ok': True,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'Authorized'
+                    }
+            })
             response.cookies['session'] = hs
             response.cookies['session']['httponly'] = True
             response.cookies['session']['max-age'] = 60 * 60 * 24 * 30
             sessions.set("session:" + hs, user.id)
             return response
         else:
-            return json({'error': "Authorization failed"})
+            return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'Authorization failed'
+                    }
+            }, 400)
     else:
-        return json({'error': "Expected arguments {username, password}"})
+        return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'Missing parameters'
+                    }
+        }, 406)
 
 
-@user.route('/logout', methods=['GET', 'OPTIONS'])
+@user.route('/logout', methods=['POST', 'OPTIONS'])
 @authorized()
 async def logout(request):
     """Deauthorizes user"""
-    response = json({"success": "Deauthorized"})
+    response = json({
+                    'ok': True,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'Deauthorized'
+                    }
+    }, 200)
     sessions.delete("session:" + request.cookies.get('session'))
     del response.cookies['session']
     return response
 
 
-@user.route("/get_user", methods=['GET', 'OPTIONS'])
+@user.route("/", methods=['POST', 'OPTIONS'])
 @authorized()
 async def get_user(request):
     """Gets user by id"""
-    user_id = request.args.get("id")
+    user_id = request.json.get("id")
     if not user_id:
         user = await current_user(request)
     else:
-        if not user_id.isnumeric():
-            return json({"error": "Needs integer"})
-        else:
-            user = await User.query.where(
-                (User.id == int(user_id))
-            ).gino.first()
+        if type(user_id) != int:
+            return json({
+                'ok': False,
+                'data': {},
+                'status': {
+                    'datetime': str(datetime.datetime.now()),
+                    'message': 'Expected integer'
+                }
+            }, 400)
+        user = await User.query.where(
+                (User.id == int(user_id))).gino.first()
 
     if user:
         return json({
-            'id': user.id,
-            'username': user.username,
-            'status': user.status,
-            'nickname': user.nickname,
-            'avatar':  user.avatar,
-            'email':  user.email
-        })
+                    'ok': True,
+                    'data': {
+                        'user': {
+                            'id': user.id,
+                            'username': user.username,
+                            'status': user.status,
+                            'nickname': user.nickname,
+                            'avatar':  user.avatar,
+                            'email':  user.email
+                        }
+                    },
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                    }
+        }, 200)
     else:
-        return json({"error": "No user"}, 404)
+        return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'User not found'
+                    }
+        }, 404)
 
 
-@user.route("/add_user", methods=['POST', 'OPTIONS'])
+@user.route("/add-user", methods=['POST', 'OPTIONS'])
+@has_json_body()
 async def add_user(request):
     """Adds user"""
-    username = request.args.get("username")
-    password = request.args.get("password")
-    nickname = request.args.get("nickname")
-    email = request.args.get("email")
+    username = request.json.get("username")
+    password = request.json.get("password")
+    nickname = request.json.get("nickname")
+    email = request.json.get("email")
 
     if username and password and email:
         user = User(
@@ -97,25 +152,77 @@ async def add_user(request):
         )
         if await user.validate():
             await user.create()
-            return json({"success": "User added"}, 200)
+            return json({
+                    'ok': True,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': f"User added with id {user.id}"
+                    }
+            }, 200)
 
-        return json({"error": "User already in base"})
+        return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'User is already in base'
+                    }
+        }, 409)
 
-    return json({"error": "Missing parameters"})
+    return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'Missing parameters'
+                    }
+        }, 400)
 
 
-@user.route("/del_user", methods=['POST', 'OPTIONS'])
+@user.route("/del-user", methods=['POST', 'OPTIONS'])
+@has_json_body()
 async def del_user(request):
     """Removes user"""
-    if request.args.get("id"):
+    if user_id := request.json.get("id"):
+        if type(user_id) != int:
+            return json({
+                        'ok': False,
+                        'data': {},
+                        'status': {
+                            'datetime': str(datetime.datetime.now()),
+                            'message': 'Expected integer'
+                        }
+            }, 400)
         user = await User.query.where(
-                User.id == int(request.args.get("id"))
+            User.id == request.json.get("id")
         ).gino.first()
 
         if user:
             await user.delete()
-            return json({"success": "Deleted user"})
+            return json({
+                    'ok': True,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'User deleted'
+                    }
+        }, 200)
 
-        return json({"error": "User not in base"})
+        return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'User is not in database'
+                    }
+        }, 404)
 
-    return json({"error": "Missing parameters"})
+    return json({
+                    'ok': False,
+                    'data': {},
+                    'status': {
+                        'datetime': str(datetime.datetime.now()),
+                        'message': 'Missing parameters'
+                    }
+        }, 400)
