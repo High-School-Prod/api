@@ -24,6 +24,7 @@ async def middleware_handler(request, response):
     if request.method == 'OPTIONS':
         response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
         response.headers['Access-Control-Allow-Methods'] = 'POST'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
         response.headers['Access-Control-Allow-Credentials'] = 'true'
     if request.method == 'POST':
         response.headers['Access-Control-Allow-Origin'] = 'http://127.0.0.1:5000'
